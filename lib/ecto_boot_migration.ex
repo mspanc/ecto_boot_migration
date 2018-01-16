@@ -38,7 +38,11 @@ defmodule EctoBootMigration do
       end
     end
   end
-      ```
+
+  ## Credits
+
+  Inspired by https://github.com/bitwalker/distillery/blob/master/docs/Running%20Migrations.md
+  ```
   """
 
   @apps [
@@ -192,7 +196,7 @@ defmodule EctoBootMigration do
     priv_path_for(repo, "migrations")
   end
 
-  def priv_path_for(repo, filename) do
+  defp priv_path_for(repo, filename) do
     app = Keyword.get(repo.config, :otp_app)
     repo_underscore = repo |> Module.split |> List.last |> Macro.underscore
     Path.join([priv_dir(app), repo_underscore, filename])

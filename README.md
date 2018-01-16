@@ -1,7 +1,7 @@
 # EctoBootMigration
 
 [![Hex.pm](https://img.shields.io/hexpm/v/ecto_boot_migration.svg)](https://hex.pm/packages/ecto_boot_migration)
-[![Hex.pm](https://img.shields.io/hexpm/dt/ecto_boot_migratin.svg)](https://hex.pm/packages/ecto_boot_migratin)
+[![Hex.pm](https://img.shields.io/hexpm/dt/ecto_boot_migration.svg)](https://hex.pm/packages/ecto_boot_migration)
 
 Helper module for Elxiir that can be used to easily ensure that Ecto database 
 was migrated before rest of the application was started.
@@ -62,6 +62,12 @@ defmodule MyApp do
   end
 end
 ```
+
+
+## Credits
+
+Inspired by https://github.com/bitwalker/distillery/blob/master/docs/Running%20Migrations.md
+
 
 ## License
 
