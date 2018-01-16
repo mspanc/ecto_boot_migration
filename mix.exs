@@ -34,7 +34,7 @@ defmodule EctoBootMigration.Mixfile do
 
   defp package do
     [
-     files: ["lib", "priv", "mix.exs", "README*"],
+     files: ["lib", "mix.exs", "README*"],
      maintainers: ["Marcin Lewandowski"],
      licenses: ["MIT"],
      links: %{"GitHub" => "https://github.com/mspanc/ecto_boot_migration"},
