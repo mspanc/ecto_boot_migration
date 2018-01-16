@@ -17,13 +17,6 @@ defmodule EctoBootMigration do
   In stateless environments such as Docker it is just sometimes more convenient 
   to perform migration upon boot. This is exactly what this library does.
 
-  By default if any migrations have happened it will kill the application.
-  It should be then restarted by any sort of supervisor. It is to avoid cases
-  in which some internal Ecto caches are populated with pre-migration data
-  or some processes are started due to migration process that will later
-  cause issues. This feature can be disabled by passing an argument to
-  the migration-related functions.
-
   Currently it works only with PostgreSQL databases but that will be easy to 
   extend.
 
@@ -65,9 +58,9 @@ defmodule EctoBootMigration do
 
   Throws if error occured. 
   """
-  @spec migrated?(any, boolean) :: boolean
-  def migrated?(app, stop_on_migration \\ true) do
-    case migrate(app, stop_on_migration) do
+  @spec migrated?(any) :: boolean
+  def migrated?(app) do
+    case migrate(app) do
       {:ok, :noop} ->
         false
 
@@ -90,11 +83,11 @@ defmodule EctoBootMigration do
 
   Returns `{:error, reason}` if error occured. 
   """
-  @spec migrate(any, boolean) :: 
+  @spec migrate(any) :: 
     {:ok, :noop} |
     {:ok, {:migrated, [pos_integer]}} |
     {:error, any}
-  def migrate(app, stop_on_migration \\ true) do
+  def migrate(app) do
     IO.puts "[EctoBootMigration] Loading application #{inspect(app)}..."
     loaded? = 
       case Application.load(app) do
@@ -126,49 +119,65 @@ defmodule EctoBootMigration do
 
       # Start the Repo(s) for app
       IO.puts "[EctoBootMigration] Starting repos..."
-      repos
-      |> Enum.each(fn(repo) ->
-        IO.puts "[EctoBootMigration] Starting repo: #{inspect(repo)}"
-        case repo.start_link(pool_size: 1) do
-          {:ok, pid} ->
-            IO.puts "[EctoBootMigration] Started repo: pid = #{inspect(pid)}"
+      repos_pids =
+        repos
+        |> Enum.reduce([], fn(repo, acc) ->
+          IO.puts "[EctoBootMigration] Starting repo: #{inspect(repo)}"
+          case repo.start_link(pool_size: 1) do
+            {:ok, pid} ->
+              IO.puts "[EctoBootMigration] Started repo: pid = #{inspect(pid)}"
+              [pid|acc]
 
-          {:error, {:already_started, pid}} ->
-            IO.puts "[EctoBootMigration] Repo was already started: pid = #{inspect(pid)}"
+            {:error, {:already_started, pid}} ->
+              IO.puts "[EctoBootMigration] Repo was already started: pid = #{inspect(pid)}"
+              acc
 
-          {:error, reason} ->
-            IO.puts "[EctoBootMigration] Failed to start the repo: reason = #{inspect(reason)}"
-        end
-      end)
-      IO.puts "[EctoBootMigration] Started repos"
+            {:error, reason} ->
+              IO.puts "[EctoBootMigration] Failed to start the repo: reason = #{inspect(reason)}"
+              acc
+          end
+        end)
+      IO.puts "[EctoBootMigration] Started repos, pids = #{inspect(repos_pids)}"
 
       # Run migrations
       IO.puts "[EctoBootMigration] Running migrations"
       migrations =
         repos
         |> Enum.reduce([], fn(repo, acc) ->
-          IO.puts "[EctoBootMigration] Running migration: repo #{inspect(repo)}"
+          IO.puts "[EctoBootMigration] Running migration on repo #{inspect(repo)}"
 
           result = Ecto.Migrator.run(repo, migrations_path(repo), :up, all: true)
-          IO.puts "[EctoBootMigration] Run migration: result = #{inspect(result)}"
+          IO.puts "[EctoBootMigration] Run migration on repo #{inspect(repo)}: result = #{inspect(result)}"
           acc ++ result
         end)
       IO.puts "[EctoBootMigration] Run migrations: count = #{length(migrations)}"
 
+      IO.puts "[EctoBootMigration] Cleaning up..."
+
+      # Stop repos we have started
+      IO.puts "[EctoBootMigration] Stopping repos..."
+      repos_pids
+      |> Enum.each(fn(repo_pid) ->
+        IO.puts "[EctoBootMigration] Stopping repo #{inspect(repo_pid)}..."
+        Process.exit(repo_pid, :normal)
+        IO.puts "[EctoBootMigration] Stopped repo #{inspect(repo_pid)}"
+      end)
+      IO.puts "[EctoBootMigration] Stopped repos"
+
+      IO.puts "[EctoBootMigration] Cleaned up"
+
       IO.puts "[EctoBootMigration] Done"
+
+      migrations = []
 
       case migrations do
         [] ->
           {:ok, :noop}
 
         migrations ->
-          if stop_on_migration do
-            IO.puts "[EctoBootMigration] Exiting"
-            :init.stop()
-          else
-            {:ok, {:migrated, migrations}}
-          end
+          {:ok, {:migrated, migrations}}
       end
+
     else 
       {:error, :not_loaded}
     end
