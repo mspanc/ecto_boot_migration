@@ -29,15 +29,16 @@ defmodule EctoBootMigration do
     def start(_type, _args) do
       import Supervisor.Spec, warn: false
 
-      unless EctoBootMigration.migrated?(:my_app) do
-        children = [
-          supervisor(MyApp.Endpoint, []),
-          worker(MyApp.Repo, []),
-        ]
-        Supervisor.start_link(children, [strategy: :one_for_one, name: MyApp.Supervisor])
-      end
+      {:ok, _} = EctoBootMigration.migrate(:my_app)
+
+      children = [
+        supervisor(MyApp.Endpoint, []),
+        worker(MyApp.Repo, []),
+      ]
+      Supervisor.start_link(children, [strategy: :one_for_one, name: MyApp.Supervisor])
     end
   end
+  ```
 
   ## Credits
 
