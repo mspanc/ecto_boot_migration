@@ -97,12 +97,10 @@ defmodule EctoBootMigration do
       start_dependencies()
       repos = Application.get_env(app, :ecto_repos, [])
       repos_pids = start_repos(repos)
-      run_migrations(repos)
+      migrations = run_migrations(repos)
       stop_repos(repos_pids)
 
       log("Done")
-      migrations = []
-
       case migrations do
         [] ->
           {:ok, :noop}
