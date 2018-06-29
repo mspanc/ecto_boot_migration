@@ -53,7 +53,6 @@ defmodule EctoBootMigration do
     :ecto
   ]
 
-
   @doc """
   Tries to run migrations.
 
@@ -73,10 +72,9 @@ defmodule EctoBootMigration do
         true
 
       {:error, reason} ->
-        throw reason
+        throw(reason)
     end
   end
-
 
   @doc """
   Tries to run migrations.
@@ -89,89 +87,98 @@ defmodule EctoBootMigration do
   Returns `{:error, reason}` if error occured.
   """
   @spec migrate(any) ::
-    {:ok, :noop} |
-    {:ok, {:migrated, [pos_integer]}} |
-    {:error, any}
+          {:ok, :noop}
+          | {:ok, {:migrated, [pos_integer]}}
+          | {:error, any}
   def migrate(app) do
-    log "Loading application #{inspect(app)}..."
+    log("Loading application #{inspect(app)}...")
+
     loaded? =
       case Application.load(app) do
         :ok ->
-          log "Loaded application #{inspect(app)}"
+          log("Loaded application #{inspect(app)}")
           true
 
         {:error, {:already_loaded, ^app}} ->
-          log "Application #{inspect(app)} is already loaded"
+          log("Application #{inspect(app)} is already loaded")
           true
 
         {:error, reason} ->
-          log "Failed to start the application: reason = #{inspect(reason)}"
+          log("Failed to start the application: reason = #{inspect(reason)}")
           false
       end
 
     if loaded? do
       # Start apps necessary for executing migrations
-      log "Starting dependencies..."
+      log("Starting dependencies...")
+
       @apps
-      |> Enum.each(fn(app) ->
-        log "Starting dependency: application #{inspect(app)}"
+      |> Enum.each(fn app ->
+        log("Starting dependency: application #{inspect(app)}")
         Application.ensure_all_started(app)
       end)
-      log "Started dependencies"
 
-      repos =
-        Application.get_env(app, :ecto_repos, [])
+      log("Started dependencies")
+
+      repos = Application.get_env(app, :ecto_repos, [])
 
       # Start the Repo(s) for app
-      log "Starting repos..."
+      log("Starting repos...")
+
       repos_pids =
         repos
-        |> Enum.reduce([], fn(repo, acc) ->
-          log "Starting repo: #{inspect(repo)}"
+        |> Enum.reduce([], fn repo, acc ->
+          log("Starting repo: #{inspect(repo)}")
+
           case repo.start_link(pool_size: 1) do
             {:ok, pid} ->
-              log "Started repo: pid = #{inspect(pid)}"
-              [pid|acc]
+              log("Started repo: pid = #{inspect(pid)}")
+              [pid | acc]
 
             {:error, {:already_started, pid}} ->
-              log "Repo was already started: pid = #{inspect(pid)}"
+              log("Repo was already started: pid = #{inspect(pid)}")
               acc
 
             {:error, reason} ->
-              log "Failed to start the repo: reason = #{inspect(reason)}"
+              log("Failed to start the repo: reason = #{inspect(reason)}")
               acc
           end
         end)
-      log "Started repos, pids = #{inspect(repos_pids)}"
+
+      log("Started repos, pids = #{inspect(repos_pids)}")
 
       # Run migrations
-      log "Running migrations"
+      log("Running migrations")
+
       migrations =
         repos
-        |> Enum.reduce([], fn(repo, acc) ->
-          log "Running migration on repo #{inspect(repo)}"
+        |> Enum.reduce([], fn repo, acc ->
+          log("Running migration on repo #{inspect(repo)}")
 
           result = Ecto.Migrator.run(repo, migrations_path(repo), :up, all: true)
-          log "Run migration on repo #{inspect(repo)}: result = #{inspect(result)}"
+          log("Run migration on repo #{inspect(repo)}: result = #{inspect(result)}")
           acc ++ result
         end)
-      log "Run migrations: count = #{length(migrations)}"
 
-      log "Cleaning up..."
+      log("Run migrations: count = #{length(migrations)}")
+
+      log("Cleaning up...")
 
       # Stop repos we have started
-      log "Stopping repos..."
+      log("Stopping repos...")
+
       repos_pids
-      |> Enum.each(fn(repo_pid) ->
-        log "Stopping repo #{inspect(repo_pid)}..."
+      |> Enum.each(fn repo_pid ->
+        log("Stopping repo #{inspect(repo_pid)}...")
         Process.exit(repo_pid, :normal)
-        log "Stopped repo #{inspect(repo_pid)}"
+        log("Stopped repo #{inspect(repo_pid)}")
       end)
-      log "Stopped repos"
 
-      log "Cleaned up"
+      log("Stopped repos")
 
-      log "Done"
+      log("Cleaned up")
+
+      log("Done")
 
       migrations = []
 
@@ -182,16 +189,14 @@ defmodule EctoBootMigration do
         migrations ->
           {:ok, {:migrated, migrations}}
       end
-
     else
       {:error, :not_loaded}
     end
   end
 
   def log(msg) do
-    IO.puts "[EctoBootMigration] #{msg}"
+    IO.puts("[EctoBootMigration] #{msg}")
   end
-
 
   defp priv_dir(app) do
     "#{:code.priv_dir(app)}"
@@ -203,7 +208,7 @@ defmodule EctoBootMigration do
 
   defp priv_path_for(repo, filename) do
     app = Keyword.get(repo.config, :otp_app)
-    repo_underscore = repo |> Module.split |> List.last |> Macro.underscore
+    repo_underscore = repo |> Module.split() |> List.last() |> Macro.underscore()
     Path.join([priv_dir(app), repo_underscore, filename])
   end
 end
