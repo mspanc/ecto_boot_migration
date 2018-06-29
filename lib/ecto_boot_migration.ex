@@ -93,93 +93,14 @@ defmodule EctoBootMigration do
   def migrate(app) do
     log("Loading application #{inspect(app)}...")
 
-    loaded? =
-      case Application.load(app) do
-        :ok ->
-          log("Loaded application #{inspect(app)}")
-          true
-
-        {:error, {:already_loaded, ^app}} ->
-          log("Application #{inspect(app)} is already loaded")
-          true
-
-        {:error, reason} ->
-          log("Failed to start the application: reason = #{inspect(reason)}")
-          false
-      end
-
-    if loaded? do
-      # Start apps necessary for executing migrations
-      log("Starting dependencies...")
-
-      @apps
-      |> Enum.each(fn app ->
-        log("Starting dependency: application #{inspect(app)}")
-        Application.ensure_all_started(app)
-      end)
-
-      log("Started dependencies")
-
+    if loaded?(app) do
+      start_dependencies()
       repos = Application.get_env(app, :ecto_repos, [])
-
-      # Start the Repo(s) for app
-      log("Starting repos...")
-
-      repos_pids =
-        repos
-        |> Enum.reduce([], fn repo, acc ->
-          log("Starting repo: #{inspect(repo)}")
-
-          case repo.start_link(pool_size: 1) do
-            {:ok, pid} ->
-              log("Started repo: pid = #{inspect(pid)}")
-              [pid | acc]
-
-            {:error, {:already_started, pid}} ->
-              log("Repo was already started: pid = #{inspect(pid)}")
-              acc
-
-            {:error, reason} ->
-              log("Failed to start the repo: reason = #{inspect(reason)}")
-              acc
-          end
-        end)
-
-      log("Started repos, pids = #{inspect(repos_pids)}")
-
-      # Run migrations
-      log("Running migrations")
-
-      migrations =
-        repos
-        |> Enum.reduce([], fn repo, acc ->
-          log("Running migration on repo #{inspect(repo)}")
-
-          result = Ecto.Migrator.run(repo, migrations_path(repo), :up, all: true)
-          log("Run migration on repo #{inspect(repo)}: result = #{inspect(result)}")
-          acc ++ result
-        end)
-
-      log("Run migrations: count = #{length(migrations)}")
-
-      log("Cleaning up...")
-
-      # Stop repos we have started
-      log("Stopping repos...")
-
-      repos_pids
-      |> Enum.each(fn repo_pid ->
-        log("Stopping repo #{inspect(repo_pid)}...")
-        Process.exit(repo_pid, :normal)
-        log("Stopped repo #{inspect(repo_pid)}")
-      end)
-
-      log("Stopped repos")
-
-      log("Cleaned up")
+      repos_pids = start_repos(repos)
+      run_migrations(repos)
+      stop_repos(repos_pids)
 
       log("Done")
-
       migrations = []
 
       case migrations do
@@ -194,8 +115,110 @@ defmodule EctoBootMigration do
     end
   end
 
-  def log(msg) do
-    IO.puts("[EctoBootMigration] #{msg}")
+  def loaded?(app) do
+    case Application.load(app) do
+      :ok ->
+        log("Loaded application #{inspect(app)}")
+        true
+
+      {:error, {:already_loaded, ^app}} ->
+        log("Application #{inspect(app)} is already loaded")
+        true
+
+      {:error, reason} ->
+        log("Failed to start the application: reason = #{inspect(reason)}")
+        false
+    end
+  end
+
+  @doc """
+  Start the Repo(s) for app, returns pids
+  """
+  def start_repos(repos) do
+    log("Starting repos...")
+
+    repos_pids =
+      repos
+      |> Enum.reduce([], fn repo, acc ->
+        log("Starting repo: #{inspect(repo)}")
+
+        case repo.start_link(pool_size: 1) do
+          {:ok, pid} ->
+            log("Started repo: pid = #{inspect(pid)}")
+            [pid | acc]
+
+          {:error, {:already_started, pid}} ->
+            log("Repo was already started: pid = #{inspect(pid)}")
+            acc
+
+          {:error, reason} ->
+            log("Failed to start the repo: reason = #{inspect(reason)}")
+            acc
+        end
+      end)
+
+    log("Started repos, pids = #{inspect(repos_pids)}")
+    repos_pids
+  end
+
+  def run_migrations(repos) do
+    log("Running migrations")
+
+    migrations =
+      repos
+      |> Enum.reduce([], fn repo, acc ->
+        log("Running migration on repo #{inspect(repo)}")
+
+        result = Ecto.Migrator.run(repo, migrations_path(repo), :up, all: true)
+        log("Run migration on repo #{inspect(repo)}: result = #{inspect(result)}")
+        acc ++ result
+      end)
+
+    log("Run migrations: count = #{length(migrations)}")
+    migrations
+  end
+
+  @doc """
+  Start apps necessary for executing migrations
+  """
+  def start_dependencies do
+    log("Starting dependencies...")
+
+    @apps
+    |> Enum.each(fn app ->
+      log("Starting dependency: application #{inspect(app)}")
+      Application.ensure_all_started(app)
+    end)
+
+    log("Started dependencies")
+  end
+
+  def stop_repos(repos_pids) do
+    log("Cleaning up...")
+    log("Stopping repos...")
+
+    repos_pids
+    |> Enum.each(fn repo_pid ->
+      log("Stopping repo #{inspect(repo_pid)}...")
+      Process.exit(repo_pid, :normal)
+      log("Stopped repo #{inspect(repo_pid)}")
+    end)
+
+    log("Stopped repos")
+    log("Cleaned up")
+  end
+
+  def log(msg), do: log(msg, debug?())
+  def log(msg, true), do: IO.puts("[EctoBootMigration] #{msg}")
+
+  @doc """
+  this prevents pre-mature return
+  that could cause the main app to exit, because the repos were not 100% shutdown
+  """
+  def log(_, false), do: Process.sleep(1)
+
+  def debug? do
+    Application.get_env(:ecto_boot_migration, :debug, false)
   end
 
   defp priv_dir(app) do
