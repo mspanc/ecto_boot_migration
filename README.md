@@ -37,7 +37,7 @@ dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:ecto_boot_migration, "~> 0.1.2"}]
+  [{:ecto_boot_migration, "~> 0.2.0"}]
 end
 ```
 
