@@ -6,7 +6,7 @@ defmodule EctoBootMigration do
   ## Rationale
 
   There are many strategies how to deal with this issue,
-  e.g. see https://github.com/bitwalker/distillery/blob/master/docs/Running%20Migrations.md
+  e.g. see https://hexdocs.pm/distillery/guides/running_migrations.html
 
   However, if you have any workers that are relying on the DB schema that are
   launched upon boot with some methods, such as release post_start hooks you

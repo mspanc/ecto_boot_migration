@@ -37,7 +37,7 @@ dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:ecto_boot_migration, "~> 0.1.0"}]
+  [{:ecto_boot_migration, "~> 0.1.2"}]
 end
 ```
 
@@ -75,7 +75,7 @@ config :ecto_boot_migration,
 
 ## Credits
 
-Inspired by https://github.com/bitwalker/distillery/blob/master/docs/Running%20Migrations.md
+Inspired by https://hexdocs.pm/distillery/guides/running_migrations.html
 
 
 ## License
