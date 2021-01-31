@@ -196,10 +196,22 @@ defmodule EctoBootMigration do
     log("Stopping repos...")
 
     repos_pids
-    |> Enum.each(fn repo_pid ->
+    |> Enum.map(fn repo_pid ->
+      # monitor each repo process, then send an exit message
       log("Stopping repo #{inspect(repo_pid)}...")
+      ref = Process.monitor(repo_pid)
       Process.exit(repo_pid, :normal)
-      log("Stopped repo #{inspect(repo_pid)}")
+      {ref, repo_pid}
+    end)
+    |> Enum.each(fn {ref, repo_pid} ->
+      # wait for a DOWN message from each repo process
+      receive do
+        {:DOWN, ^ref, _, _, _} ->
+          log("repo #{inspect(repo_pid)} shutdown successfully")
+      after
+        5_000 ->
+          raise "timeout waiting for repo #{inspect(repo_pid)} to shutdown!"
+      end
     end)
 
     log("Stopped repos")
@@ -208,12 +220,6 @@ defmodule EctoBootMigration do
 
   def log(msg), do: log(msg, debug?())
   def log(msg, true), do: IO.puts("[EctoBootMigration] #{msg}")
-
-  @doc """
-  this prevents pre-mature return
-  that could cause the main app to exit, because the repos were not 100% shutdown
-  """
-  def log(_, false), do: Process.sleep(1)
 
   def debug? do
     Application.get_env(:ecto_boot_migration, :debug, false)
