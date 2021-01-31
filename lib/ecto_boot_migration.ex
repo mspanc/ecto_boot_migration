@@ -220,7 +220,9 @@ defmodule EctoBootMigration do
 
   def log(msg), do: log(msg, debug?())
   def log(msg, true), do: IO.puts("[EctoBootMigration] #{msg}")
-
+  def log(msg, false) do
+  end
+ 
   def debug? do
     Application.get_env(:ecto_boot_migration, :debug, false)
   end
