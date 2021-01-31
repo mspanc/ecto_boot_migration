@@ -220,7 +220,8 @@ defmodule EctoBootMigration do
 
   def log(msg), do: log(msg, debug?())
   def log(msg, true), do: IO.puts("[EctoBootMigration] #{msg}")
-  def log(msg, false) do
+  def log(_msg, false) do
+    # noop
   end
  
   def debug? do
