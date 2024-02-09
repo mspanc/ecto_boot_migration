@@ -86,11 +86,11 @@ defmodule EctoBootMigration do
 
   Returns `{:error, reason}` if error occured.
   """
-  @spec migrate(any) ::
+  @spec migrate(any, list) ::
           {:ok, :noop}
           | {:ok, {:migrated, [pos_integer]}}
           | {:error, any}
-  def migrate(app) do
+  def migrate(app, opts \\ []) do
     log("Loading application #{inspect(app)}...")
 
     if loaded?(app) do
@@ -98,6 +98,7 @@ defmodule EctoBootMigration do
       repos = Application.get_env(app, :ecto_repos, [])
       repos_pids = start_repos(repos)
       migrations = run_migrations(repos)
+      if Keyword.get(opts, :seed), do: run_seeds(repos)
       stop_repos(repos_pids)
 
       log("Done")
@@ -160,7 +161,7 @@ defmodule EctoBootMigration do
   end
 
   def run_migrations(repos) do
-    log("Running migrations")
+    log("Running migrations...")
 
     migrations =
       repos
@@ -174,6 +175,23 @@ defmodule EctoBootMigration do
 
     log("Run migrations: count = #{length(migrations)}")
     migrations
+  end
+
+  def run_seeds(repos) do
+    log("Loading seeds...")
+
+    Enum.each(repos, fn repo ->
+      log(" + loading seeds for repo #{inspect(repo)}")
+
+      "#{seed_path(repo)}/*.exs"
+      |> Path.wildcard()
+      |> Enum.sort()
+      |> Enum.each(fn seed_script ->
+        Ecto.Migrator.with_repo(repo, fn _repo ->
+          Code.eval_file(seed_script)
+        end)
+      end)
+    end)
   end
 
   @doc """
@@ -223,7 +241,7 @@ defmodule EctoBootMigration do
   def log(_msg, false) do
     # noop
   end
- 
+
   def debug? do
     Application.get_env(:ecto_boot_migration, :debug, false)
   end
@@ -236,7 +254,11 @@ defmodule EctoBootMigration do
     priv_path_for(repo, "migrations")
   end
 
-  defp priv_path_for(repo, filename) do
+  defp seed_path(repo) do
+    priv_path_for(repo)
+  end
+
+  defp priv_path_for(repo, filename \\ "") do
     app = Keyword.get(repo.config, :otp_app)
     repo_underscore = repo |> Module.split() |> List.last() |> Macro.underscore()
     Path.join([priv_dir(app), repo_underscore, filename])
