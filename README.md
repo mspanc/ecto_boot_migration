@@ -3,10 +3,6 @@
 [![Hex.pm](https://img.shields.io/hexpm/v/ecto_boot_migration.svg)](https://hex.pm/packages/ecto_boot_migration)
 [![Hex.pm](https://img.shields.io/hexpm/dt/ecto_boot_migration.svg)](https://hex.pm/packages/ecto_boot_migration)
 
-> [!IMPORTANT]
-> This project is deprecated. Use [Ecto.Migrator](https://hexdocs.pm/ecto_sql/Ecto.Migrator.html) instead.
-
-
 Helper module for Elixir that can be used to easily ensure that Ecto database
 was migrated before rest of the application was started.
 
